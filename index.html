@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wichteln</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px 16px;font-size:17px;color:#222;background:#fff}
+  h1{font-size:24px;margin:0 0 16px}
+  input{display:block;width:100%;box-sizing:border-box;padding:10px;margin:0 0 8px;font-size:17px;border:1px solid #ccc;border-radius:6px}
+  button,a.btn{display:inline-block;padding:10px 14px;font-size:16px;border:0;border-radius:6px;background:#2e7d4f;color:#fff;text-decoration:none;cursor:pointer}
+  #los{width:100%;margin-top:8px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee}
+  .big{font-size:32px;font-weight:bold;margin:12px 0}
+  .err{color:#b00}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <h1>Wichteln</h1>
+  <div id="names"></div>
+  <p class="err" id="err"></p>
+  <button id="los">Auslosen</button>
+</div>
+
+<div id="liste" hidden>
+  <h1>Links verschicken</h1>
+  <div id="rows"></div>
+</div>
+
+<div id="los-ansicht" hidden>
+  <h1 id="hallo"></h1>
+  <p>Du beschenkst:</p>
+  <div class="big" id="ziel"></div>
+</div>
+
+<script>
+const KEY = "wichteln";
+const $ = id => document.getElementById(id);
+
+function enc(o){
+  const b = new TextEncoder().encode(JSON.stringify(o));
+  return [...b].map((x,i)=>((x ^ KEY.charCodeAt(i % KEY.length)) & 255).toString(16).padStart(2,"0")).join("");
+}
+function dec(h){
+  try{
+    const b = new Uint8Array(h.match(/../g).map((x,i)=>parseInt(x,16) ^ KEY.charCodeAt(i % KEY.length)));
+    return JSON.parse(new TextDecoder().decode(b));
+  }catch(e){ return null; }
+}
+
+const hash = location.hash.slice(1);
+if(hash){
+  const d = dec(hash);
+  $("start").hidden = true;
+  $("los-ansicht").hidden = false;
+  if(d){ $("hallo").textContent = "Hallo " + d.g; $("ziel").textContent = d.r; }
+  else { $("hallo").textContent = "Link ist kaputt"; }
+} else {
+  for(let i=0;i<6;i++){
+    const inp = document.createElement("input");
+    inp.placeholder = "Name " + (i+1);
+    $("names").appendChild(inp);
+  }
+  if(location.protocol === "file:") $("err").textContent = "Erst hochladen, lokal funktionieren die Links nicht.";
+
+  $("los").onclick = () => {
+    const n = [...document.querySelectorAll("#names input")].map(i=>i.value.trim()).filter(Boolean);
+    if(n.length < 3){ $("err").textContent = "Mindestens 3 Namen."; return; }
+    let r;
+    do {
+      r = [...n];
+      for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; }
+    } while(n.some((x,i)=>x===r[i]));
+    const base = location.href.split("#")[0];
+    n.forEach((g,i)=>{
+      const link = base + "#" + enc({g, r:r[i]});
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = '<span></span><a class="btn" target="_blank">WhatsApp</a>';
+      row.querySelector("span").textContent = g;
+      row.querySelector("a").href = "https://wa.me/?text=" + encodeURIComponent("Dein Wichtel-Los: " + link);
+      $("rows").appendChild(row);
+    });
+    $("start").hidden = true;
+    $("liste").hidden = false;
+  };
+}
+</script>
+</body>
+</html>
